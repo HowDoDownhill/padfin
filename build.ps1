@@ -5,7 +5,8 @@
 # build, with its export templates installed.
 #
 # Usage: .\build.ps1 [-Output <folder>] [-Release]
-#   -Release also writes releases\padfin-windows.zip, the file to attach to a GitHub release.
+#   -Release also exports the Linux build and writes releases\padfin-windows.zip and
+#   releases\padfin-linux.zip, the files to attach to a GitHub release.
 param([string]$Output, [switch]$Release)
 
 $ErrorActionPreference = 'Stop'
@@ -69,4 +70,34 @@ if ($Release) {
     try { tar.exe -a -c -f $zip @shipped } finally { Pop-Location }
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $zip)) { throw 'The release zip could not be made.' }
     Write-Host ('Packed {0} ({1:N0} MB)' -f $zip, ((Get-Item $zip).Length / 1MB))
+
+    # The Linux build. It uses the system's libmpv, so nothing is bundled beside it.
+    $linux = Join-Path $root 'build\linux'
+    New-Item -ItemType Directory -Force $linux | Out-Null
+    Get-ChildItem $linux -Force | Remove-Item -Recurse -Force -Confirm:$false
+    Write-Host 'Exporting the Linux build'
+    $linuxLog = Join-Path $root 'build\export-linux.log'
+    cmd /c "`"$godot`" --headless --path `"$root`" --export-release `"Linux`" `"$linux\padfin.x86_64`" > `"$linuxLog`" 2>&1"
+    if (-not (Test-Path "$linux\padfin.x86_64") -or -not (Get-ChildItem $linux -Directory -Filter 'data_*')) {
+        Select-String -Path $linuxLog -Pattern '^ERROR' | Select-Object -First 10 | ForEach-Object { Write-Host $_.Line }
+        throw "The Linux export failed. The full log is at $linuxLog"
+    }
+
+    # Written entry by entry so the launcher files keep their executable bit, which a zip made by
+    # Windows tools would drop. Names use forward slashes, as Linux expects.
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $linuxZip = Join-Path $releases 'padfin-linux.zip'
+    if (Test-Path $linuxZip) { Remove-Item $linuxZip -Force -Confirm:$false }
+    $archive = [IO.Compression.ZipFile]::Open($linuxZip, 'Create')
+    try {
+        foreach ($file in Get-ChildItem $linux -Recurse -File) {
+            $name = $file.FullName.Substring($linux.Length + 1).Replace('\', '/')
+            $entry = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $name, 'Optimal')
+            $executable = $name -eq 'padfin.x86_64' -or $name -eq 'padfin.sh'
+            $mode = if ($executable) { 0x81ED } else { 0x81A4 }   # -rwxr-xr-x or -rw-r--r--
+            $entry.ExternalAttributes = $mode -shl 16
+        }
+    }
+    finally { $archive.Dispose() }
+    Write-Host ('Packed {0} ({1:N0} MB)' -f $linuxZip, ((Get-Item $linuxZip).Length / 1MB))
 }

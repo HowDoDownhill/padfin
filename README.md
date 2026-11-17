@@ -74,11 +74,15 @@ playback info, **B** stops.
 
 ## Install
 
-You need a 64-bit PC running Windows 10 or 11. A Linux build is planned.
+You need a 64-bit PC running Windows 10 or 11, or Linux.
 
-1. Download `padfin-windows.zip` from [Releases](https://github.com/HowDoDownhill/padfin/releases).
+1. Download `padfin-windows.zip` or `padfin-linux.zip` from
+   [Releases](https://github.com/HowDoDownhill/padfin/releases).
 2. Extract it to any folder you can write to.
-3. Run `padfin.exe`.
+3. Run `padfin.exe` on Windows or `padfin.sh` on Linux.
+
+On Linux, Padfin plays video with the system's libmpv. Install it first: `libmpv2` on Debian and
+Ubuntu, `mpv-libs` on Fedora, `mpv` on Arch and SteamOS. The Linux build has not been tested yet.
 
 ## Updates
 
