@@ -1,0 +1,168 @@
+# Builds the libmpv that ships inside the Linux download, then runs the Linux build of Padfin
+# with it on a clean machine.
+#
+# libmpv is built from the official sources with mpv-build, the mpv project's own build helper.
+# FFmpeg, libass, libplacebo and dav1d are linked into the one libmpv.so.2, so the download needs
+# no media libraries from the system. What it still takes from the system is listed by the
+# "Show what it needs from the system" step.
+name: Linux libmpv
+
+on:
+  workflow_dispatch:
+    inputs:
+      padfin_release:
+        description: Release whose padfin-linux.zip the test runs with the new libmpv
+        default: "0.1.0"
+      publish_tag:
+        description: Tag to publish the built libmpv under, such as libmpv-linux-1. Empty skips publishing.
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # The oldest supported runner, so the library loads on distributions back to glibc 2.35.
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install build tools and headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config nasm yasm autoconf automake libtool git python3-pip patchelf \
+            libgnutls28-dev zlib1g-dev \
+            libfreetype-dev libfribidi-dev libharfbuzz-dev libfontconfig1-dev \
+            libegl1-mesa-dev libgl1-mesa-dev libdrm-dev libva-dev \
+            libasound2-dev libpulse-dev
+          sudo pip3 install --upgrade meson ninja jinja2 glad2
+
+      - name: Build dav1d
+        # The AV1 decoder. The packaged one on this runner is older than FFmpeg accepts.
+        run: |
+          git clone --depth 1 --branch 1.5.1 https://code.videolan.org/videolan/dav1d.git
+          cd dav1d
+          meson setup build --prefix="$HOME/deps" --libdir=lib --default-library=static \
+            -Db_staticpic=true -Denable_tools=false -Denable_tests=false --buildtype=release
+          ninja -C build install
+
+      - name: Build libmpv
+        run: |
+          export PKG_CONFIG_PATH="$HOME/deps/lib/pkgconfig"
+          git clone --depth 1 https://github.com/mpv-player/mpv-build.git
+          cd mpv-build
+          ./use-mpv-release
+          ./use-ffmpeg-release
+          printf '%s\n' --enable-pic --enable-gnutls --enable-libdav1d --disable-programs --disable-doc > ffmpeg_options
+          # Only what a library drawing into someone else's OpenGL context needs. No window
+          # systems, no scripting, no command-line player.
+          printf '%s\n' -Dlibmpv=true -Dcplayer=false -Dplain-gl=enabled -Dgl=enabled \
+            -Dx11=disabled -Dwayland=disabled -Dpipewire=disabled -Dlua=disabled -Djavascript=disabled \
+            -Dvaapi=enabled -Dvaapi-drm=enabled -Dalsa=enabled -Dpulse=enabled > mpv_options
+          export CFLAGS="-fPIC" CXXFLAGS="-fPIC"
+          ./rebuild -j"$(nproc)"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp -L mpv/build/libmpv.so.2 "$GITHUB_WORKSPACE/out/libmpv.so.2"
+          strip --strip-unneeded "$GITHUB_WORKSPACE/out/libmpv.so.2"
+          {
+            echo "libmpv for Padfin's Linux build, built by this repository's Linux libmpv workflow."
+            echo "mpv:        $(git -C mpv describe --tags --always)"
+            echo "FFmpeg:     $(git -C ffmpeg describe --tags --always)"
+            echo "libass:     $(git -C libass describe --tags --always)"
+            echo "libplacebo: $(git -C libplacebo describe --tags --always)"
+            echo "dav1d:      1.5.1"
+            echo "Built with mpv-build on Ubuntu 22.04. mpv and FFmpeg are built as GPL."
+          } > "$GITHUB_WORKSPACE/out/libmpv-linux.txt"
+          cat "$GITHUB_WORKSPACE/out/libmpv-linux.txt"
+
+      - name: Show what it needs from the system
+        run: |
+          ls -la out
+          objdump -p out/libmpv.so.2 | grep -E "NEEDED|SONAME"
+          echo "--- newest glibc symbol version required ---"
+          objdump -T out/libmpv.so.2 | grep -oE "GLIBC_[0-9.]+" | sort -V | tail -1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libmpv-linux-x86_64
+          path: out/
+
+  test:
+    needs: build
+    # A newer, clean machine than the one that built it, with none of the build headers installed.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: libmpv-linux-x86_64
+          path: libmpv
+
+      - name: Install a display, a software OpenGL driver and a test video maker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libgl1-mesa-dri libglx-mesa0 libegl1 \
+            libxcursor1 libxinerama1 libxrandr2 libxi6 libasound2t64 libpulse0 fontconfig fonts-dejavu-core ffmpeg unzip
+
+      - name: Fetch the Linux build of Padfin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.padfin_release }}" --repo "${{ github.repository }}" --pattern padfin-linux.zip
+          mkdir padfin && unzip -q padfin-linux.zip -d padfin
+          cp libmpv/libmpv.so.2 padfin/
+          ls -la padfin
+
+      - name: Check the library loads with only system libraries
+        run: |
+          ldd padfin/libmpv.so.2 | tee ldd.txt
+          ! grep -q "not found" ldd.txt
+
+      - name: Play a test video in Padfin
+        run: |
+          ffmpeg -loglevel error -f lavfi -i "testsrc2=size=1280x720:rate=30:duration=20" \
+            -f lavfi -i "anullsrc=r=48000:cl=stereo" -shortest -c:v libx264 -pix_fmt yuv420p -c:a aac test.mkv
+          printf '[ui]\n\nsounds="false"\n\n[playback]\n\nstats="true"\n' > test.cfg
+          cd padfin
+          timeout 120 xvfb-run -a -s "-screen 0 1600x900x24" ./padfin.x86_64 -- --windowed \
+            --config "$GITHUB_WORKSPACE/test.cfg" --play "$GITHUB_WORKSPACE/test.mkv" \
+            --shot "$GITHUB_WORKSPACE/player.png" 8 2>&1 | tee "$GITHUB_WORKSPACE/player.log" || true
+          cd ..
+          test -s player.png
+          grep -q "Playing with" player.log
+
+      - name: Open the first screen in Padfin
+        run: |
+          cd padfin
+          timeout 120 xvfb-run -a -s "-screen 0 1600x900x24" ./padfin.x86_64 -- --windowed \
+            --config "$GITHUB_WORKSPACE/test.cfg" --shot "$GITHUB_WORKSPACE/connect.png" 6 2>&1 | tee "$GITHUB_WORKSPACE/connect.log" || true
+          test -s "$GITHUB_WORKSPACE/connect.png"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-test
+          path: |
+            player.png
+            connect.png
+            player.log
+            connect.log
+            ldd.txt
+
+  publish:
+    needs: [build, test]
+    if: inputs.publish_tag != ''
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: libmpv-linux-x86_64
+          path: out
+      - name: Publish the library for the build script to fetch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tar -czf libmpv-linux-x86_64.tar.gz -C out libmpv.so.2 libmpv-linux.txt
+          gh release create "${{ inputs.publish_tag }}" libmpv-linux-x86_64.tar.gz --repo "${{ github.repository }}" \
+            --prerelease --title "libmpv for the Linux build (${{ inputs.publish_tag }})" \
+            --notes "$(cat out/libmpv-linux.txt)
+
+          This is a build dependency, fetched by build.ps1. It is not a Padfin download."
