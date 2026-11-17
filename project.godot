@@ -1,0 +1,65 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Padfin"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
+boot_splash/bg_color=Color(0.051, 0.055, 0.078, 1)
+boot_splash/show_image=false
+config/icon="res://icon.svg"
+config/quit_on_go_back=false
+
+[autoload]
+
+Config="*res://scripts/autoloads/Config.cs"
+Jellyfin="*res://scripts/autoloads/Jellyfin.cs"
+ImageCache="*res://scripts/autoloads/ImageCache.cs"
+Seerr="*res://scripts/autoloads/Seerr.cs"
+Updater="*res://scripts/autoloads/Updater.cs"
+ControllerIcons="*res://addons/controller_icons/ControllerIcons.cs"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[dotnet]
+
+project/assembly_name="padfin"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/controller_icons/plugin.cfg")
+
+[gui]
+
+theme/custom="res://assets/themes/app_theme.tres"
+theme/custom_font="res://assets/fonts/InterVariable.woff2"
+
+[navigation]
+
+2d/navigation_engine="Dummy"
+3d/navigation_engine="Dummy"
+
+[physics]
+
+2d/physics_engine="Dummy"
+3d/physics_engine="Dummy"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.051, 0.055, 0.078, 1)

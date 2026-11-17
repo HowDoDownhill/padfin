@@ -1,0 +1,26 @@
+# Godot
+.godot/
+.import/
+export_credentials.cfg
+*.tmp
+~*.dll
+
+# .NET
+.mono/
+data_*/
+mono_crash.*.json
+.idea/
+.vs/
+*.sln.DotSettings.user
+bin/
+obj/
+
+# Build output
+/build/
+/releases/
+
+# libmpv, fetched by tools/fetch-mpv.ps1
+/native/
+
+.claude/
+CLAUDE.md
