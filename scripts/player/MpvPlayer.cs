@@ -83,7 +83,7 @@ public sealed unsafe class MpvPlayer : IDisposable
         try { _mpv = MpvNative.mpv_create(); }
         catch (DllNotFoundException)
         {
-            throw new InvalidOperationException("libmpv was not found. On Windows run tools/fetch-mpv.ps1. On Linux install libmpv2.");
+            throw new InvalidOperationException("libmpv was not found. On Windows run tools/fetch-mpv.ps1. On Linux put libmpv.so.2 beside the executable or install libmpv2.");
         }
         if (_mpv == IntPtr.Zero) { throw new InvalidOperationException("mpv could not start."); }
 
@@ -97,7 +97,11 @@ public sealed unsafe class MpvPlayer : IDisposable
         Option("ytdl", "no");
         Option("idle", "yes");
         Option("keep-open", "no");
-        Option("hwdec", Config.I.HardwareDecoding);
+        // On Linux, mpv can hand VAAPI frames straight to OpenGL only when it owns the window.
+        // Drawing into Godot's context, the copying decoders are the ones that work on Intel and AMD.
+        var hwdec = Config.I.HardwareDecoding;
+        if (OperatingSystem.IsLinux() && hwdec == "auto-safe") { hwdec = "auto-copy-safe"; }
+        Option("hwdec", hwdec);
         Option("video-timing-offset", "0");
         Option("audio-client-name", Jellyfin.ClientName);
         Option("user-agent", $"{Jellyfin.ClientName}/{Jellyfin.ClientVersion}");

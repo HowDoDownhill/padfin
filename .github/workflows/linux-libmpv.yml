@@ -2,7 +2,7 @@
 # with it on a clean machine.
 #
 # libmpv is built from the official sources with mpv-build, the mpv project's own build helper.
-# FFmpeg, libass, libplacebo and dav1d are linked into the one libmpv.so.2, so the download needs
+# FFmpeg, libass, libplacebo, dav1d and libdrm are linked into the one libmpv.so.2, so the download needs
 # no media libraries from the system. What it still takes from the system is listed by the
 # "Show what it needs from the system" step.
 name: Linux libmpv
@@ -33,7 +33,7 @@ jobs:
             libgnutls28-dev zlib1g-dev \
             libfreetype-dev libfribidi-dev libharfbuzz-dev libfontconfig1-dev \
             libegl1-mesa-dev libgl1-mesa-dev libdrm-dev libva-dev \
-            libasound2-dev libpulse-dev
+            libasound2-dev libpulse-dev hwdata
           sudo pip3 install --upgrade meson ninja jinja2 glad2
 
       - name: Build dav1d
@@ -44,6 +44,23 @@ jobs:
           meson setup build --prefix="$HOME/deps" --libdir=lib --default-library=static \
             -Db_staticpic=true -Denable_tools=false -Denable_tests=false --buildtype=release
           ninja -C build install
+
+      - name: Build libdrm and libdisplay-info
+        # mpv's VAAPI decoding needs both, in versions newer than this runner packages. They are
+        # linked into libmpv, so the download carries them.
+        run: |
+          export PKG_CONFIG_PATH="$HOME/deps/lib/pkgconfig"
+          git clone --depth 1 --branch libdrm-2.4.124 https://gitlab.freedesktop.org/mesa/drm.git libdrm
+          meson setup libdrm/build libdrm --prefix="$HOME/deps" --libdir=lib --default-library=static             -Db_staticpic=true --buildtype=release -Dintel=disabled -Dradeon=disabled -Damdgpu=disabled             -Dnouveau=disabled -Dvmwgfx=disabled -Dtests=false -Dman-pages=disabled -Dvalgrind=disabled -Dcairo-tests=disabled
+          ninja -C libdrm/build install
+          git clone --depth 1 --branch 0.2.0 https://gitlab.freedesktop.org/emersion/libdisplay-info.git
+          meson setup libdisplay-info/build libdisplay-info --prefix="$HOME/deps" --libdir=lib             --default-library=static -Db_staticpic=true --buildtype=release
+          ninja -C libdisplay-info/build install
+
+      - name: Install the NVIDIA decoding headers
+        run: |
+          git clone --depth 1 https://github.com/FFmpeg/nv-codec-headers.git
+          make -C nv-codec-headers install PREFIX="$HOME/deps"
 
       - name: Build libmpv
         run: |
@@ -57,7 +74,7 @@ jobs:
           # systems, no scripting, no command-line player.
           printf '%s\n' -Dlibmpv=true -Dcplayer=false -Dplain-gl=enabled -Dgl=enabled \
             -Dx11=disabled -Dwayland=disabled -Dpipewire=disabled -Dlua=disabled -Djavascript=disabled \
-            -Dvaapi=enabled -Dvaapi-drm=enabled -Dalsa=enabled -Dpulse=enabled > mpv_options
+            -Ddrm=enabled -Dvaapi=enabled -Dvaapi-drm=enabled -Dcuda-hwaccel=enabled             -Dalsa=enabled -Dpulse=enabled > mpv_options
           export CFLAGS="-fPIC" CXXFLAGS="-fPIC"
           ./rebuild -j"$(nproc)"
           mkdir -p "$GITHUB_WORKSPACE/out"
@@ -70,6 +87,8 @@ jobs:
             echo "libass:     $(git -C libass describe --tags --always)"
             echo "libplacebo: $(git -C libplacebo describe --tags --always)"
             echo "dav1d:      1.5.1"
+            echo "libdrm:     2.4.124"
+            echo "libdisplay-info: 0.2.0"
             echo "Built with mpv-build on Ubuntu 22.04. mpv and FFmpeg are built as GPL."
           } > "$GITHUB_WORKSPACE/out/libmpv-linux.txt"
           cat "$GITHUB_WORKSPACE/out/libmpv-linux.txt"
