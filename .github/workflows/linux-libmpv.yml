@@ -76,8 +76,7 @@ jobs:
           printf '%s\n' -Dlibmpv=true -Dcplayer=false -Dplain-gl=enabled -Dgl=enabled \
             -Dx11=disabled -Dwayland=disabled -Dpipewire=disabled -Dlua=disabled -Djavascript=disabled \
             -Ddrm=enabled -Dvaapi=enabled -Dvaapi-drm=enabled -Dcuda-hwaccel=enabled             -Dalsa=enabled -Dpulse=enabled -Djpeg=disabled -Dlcms2=disabled -Dgbm=disabled -Degl-drm=disabled > mpv_options
-          printf '%s
-' -Dlcms=disabled > libplacebo_options
+          echo "-Dlcms=disabled" > libplacebo_options
           export CFLAGS="-fPIC" CXXFLAGS="-fPIC"
           ./rebuild -j"$(nproc)"
           mkdir -p "$GITHUB_WORKSPACE/out"
