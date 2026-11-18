@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo/padfin-logo.png" width="160" alt="Padfin logo"></p>
+
 # Padfin
 
 A controller-first [Jellyfin](https://jellyfin.org) client built with Godot 4.7 and C#, for Steam on
