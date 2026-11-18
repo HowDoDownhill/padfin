@@ -22,12 +22,12 @@ public partial class App : AppShell
     /// <summary>The pages in the navigation sidebar, in order.</summary>
     protected override IReadOnlyList<ShellTab> Tabs { get; } = new[]
     {
-        new ShellTab("home", "Home", () => new HomeScreen()),
-        new ShellTab("tv", "TV", () => new LibraryScreen("tv", "TV", "Series")),
-        new ShellTab("movies", "Movies", () => new LibraryScreen("movies", "Movies", "Movie")),
-        new ShellTab("collections", "Collections", () => new LibraryScreen("collections", "Collections", "BoxSet")),
-        new ShellTab("requests", "Requests", () => new RequestsScreen()),
-        new ShellTab("settings", "Settings", () => new SettingsScreen()),
+        new ShellTab("home", "Home", () => new HomeScreen(), Ui.NavIcon("home")),
+        new ShellTab("tv", "TV", () => new LibraryScreen("tv", "TV", "Series"), Ui.NavIcon("tv")),
+        new ShellTab("movies", "Movies", () => new LibraryScreen("movies", "Movies", "Movie"), Ui.NavIcon("film")),
+        new ShellTab("collections", "Collections", () => new LibraryScreen("collections", "Collections", "BoxSet"), Ui.NavIcon("collection")),
+        new ShellTab("requests", "Requests", () => new RequestsScreen(), Ui.NavIcon("inbox")),
+        new ShellTab("settings", "Settings", () => new SettingsScreen(), Ui.NavIcon("settings")),
     };
 
     // ---- Saved settings ----
