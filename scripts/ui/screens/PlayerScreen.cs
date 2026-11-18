@@ -808,6 +808,8 @@ public partial class PlayerScreen : Screen
     /// <summary>Stops playback and tells the server where the user stopped, without leaving the screen. For app exit.</summary>
     public Task StopAsync() => CloseAsync(null, false);
 
+    public override Task OnQuitAsync() => StopAsync();
+
     /// <summary>Stops playback, tells the server where the user stopped, then leaves or starts the next episode.</summary>
     private async Task CloseAsync(BaseItem next = null, bool navigate = true)
     {

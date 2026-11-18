@@ -7,9 +7,9 @@ Windows, Linux and Steam Deck. Xbox and PlayStation are planned after the PC rel
 
 Padfin is an independent project. It is not affiliated with or endorsed by Jellyfin.
 
-It shares its interface with [RomBox](https://github.com/HowDoDownhill/rombox): the Glass and Simple
-styles, colour palettes, animated backgrounds, frosted panels, gliding selection highlight,
-controller glyphs and interface sounds.
+It shares its interface with [RomBox](https://github.com/HowDoDownhill/rombox) through the FishUI
+library in `addons/fishui`: the Glass and Simple styles, colour palettes, animated backgrounds,
+frosted panels, gliding selection highlight, controller glyphs and interface sounds.
 
 ## What works
 
@@ -124,7 +124,9 @@ You need Godot 4.7.2 (.NET build), the .NET 8 SDK, and libmpv.
    `native/win-x64` (needs 7-Zip). On Linux install your distribution's `libmpv2` package to run from source. The
    Linux download ships a libmpv that the `Linux libmpv` workflow in `.github/workflows` builds
    from the mpv, FFmpeg, libass, libplacebo, dav1d and libdrm sources.
-2. Open the project in Godot, or run it from a terminal:
+2. **FishUI.** The interface library is a git submodule. Fetch it with
+   `git submodule update --init`, or clone with `--recurse-submodules`.
+3. Open the project in Godot, or run it from a terminal:
 
    ```
    dotnet build
@@ -145,20 +147,20 @@ Pass these after `--` on the Godot command line.
 | `--windowed` | Start in a window. |
 | `--config <file>` | Use this settings file in place of `padfin.cfg`, leaving the real one untouched. |
 | `--play <file or url>` | Open the player on a file, with no server. |
-| `--keys ui_down,hold:pf_rb,joy:0,quit` | Press input actions in order. `hold:` holds one down. `joy:N` presses controller button N. `quit` exits as closing the window does. |
+| `--keys ui_down,hold:fish_rb,joy:0,quit` | Press input actions in order. `hold:` holds one down. `joy:N` presses controller button N. `quit` exits as closing the window does. |
 | `--shot <png> [seconds]` | Save a screenshot after a delay, then exit. |
 
 ## Layout
 
 | Path | Contents |
 |---|---|
-| `scripts/App.cs` | Screen stack, modal overlays, input routing, footer prompts |
+| `scripts/App.cs` | Padfin's pages, saved settings, the server in the top bar, startup |
 | `scripts/autoloads` | Settings, the Jellyfin and Seerr API clients, the artwork cache |
 | `scripts/seerr` | Seerr data types and the connect flow |
 | `scripts/ui/screens` | Connect, Login, Home, Library, Details, Search, Requests, Seerr details, Settings, Player |
-| `scripts/ui/widgets` | Card, card row, row page, focus scroller, menu, jump grid, setting row, on-screen keyboard, text prompt, seek bar |
+| `scripts/ui/widgets` | The card and card row for Jellyfin and Seerr items |
 | `scripts/player` | libmpv bindings and the OpenGL bridge that lets mpv draw into a Godot texture |
-| `scripts/rombox` | Code shared with RomBox: the interface pieces and the Steam shortcut writer. Keep changes here portable back to RomBox. |
+| `addons/fishui` | FishUI, the interface library shared with RomBox: the app shell, screens and overlays, widgets, the look, and the Steam shortcut writer. A git submodule. |
 | `assets/steam` | Artwork written into the Steam library entry |
 | `addons/controller_icons` | Controller glyphs (C# port of rsubtil's Controller Icons) |
 
@@ -167,5 +169,5 @@ Settings, your Jellyfin token and your Seerr sign-in are stored in Godot's user 
 
 ## Licence
 
-RomBox's interface code is GPL-3.0, and the libmpv builds Padfin ships for Windows and Linux are GPL as well, so
+FishUI is GPL-3.0, and the libmpv builds Padfin ships for Windows and Linux are GPL as well, so
 Padfin is distributed under the GPL-3.0.

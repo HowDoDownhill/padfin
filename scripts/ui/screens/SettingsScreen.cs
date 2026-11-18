@@ -25,12 +25,7 @@ public partial class SettingsScreen : Screen
 
     private static int _lastSection;
 
-    private readonly List<(string Name, Func<List<SettingRow>> Build)> _sections = new();
-    private readonly List<Button> _sectionButtons = new();
-    private readonly List<SettingRow> _rows = new();
-    private VBoxContainer _list;
-    private Label _help;
-    private int _section = -1;
+    private SettingsPage _page;
 
     public override string Tab => "settings";
     public override string Title => "Settings";
@@ -40,62 +35,18 @@ public partial class SettingsScreen : Screen
 
     public override void OnEnter()
     {
-        _sections.Add(("Playback", PlaybackRows));
-        _sections.Add(("Video", VideoRows));
-        _sections.Add(("Audio", AudioRows));
-        _sections.Add(("Subtitles", SubtitleRows));
-        _sections.Add(("Home", HomeRows));
-        _sections.Add(("Library", LibraryRows));
-        _sections.Add(("Appearance", AppearanceRows));
-        _sections.Add(("Account", AccountRows));
-        _sections.Add(("System", SystemRows));
-
-        var columns = new HBoxContainer();
-        Ui.Fill(columns);
-        columns.AddThemeConstantOverride("separation", 0);
-        AddChild(columns);
-
-        var sections = new VBoxContainer { CustomMinimumSize = new Vector2(280, 0) };
-        sections.AddThemeConstantOverride("separation", 5);
-        for (var i = 0; i < _sections.Count; i++)
-        {
-            var index = i;
-            var button = Ui.Button(_sections[i].Name);
-            button.ThemeTypeVariation = "TitleButton";
-            button.Alignment = HorizontalAlignment.Left;
-            button.FocusEntered += () => ShowSection(index);
-            sections.AddChild(button);
-            _sectionButtons.Add(button);
-        }
-        var sectionPanel = Ui.Pad(Ui.MicaPanel(sections, 10, 12), Ui.PanelGap, Ui.PanelGap, 0, 0);
-        sectionPanel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        columns.AddChild(sectionPanel);
-
-        var right = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        right.AddThemeConstantOverride("separation", 8);
-        var scroll = new ScrollContainer
-        {
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            VerticalScrollMode = ScrollContainer.ScrollMode.ShowNever,
-            SizeFlagsVertical = SizeFlags.ExpandFill,
-        };
-        _list = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _list.AddThemeConstantOverride("separation", 0);
-        scroll.AddChild(_list);
-        FocusScroller.KeepVisible(scroll, _list, 70, vertical: true);
-        right.AddChild(scroll);
-        _help = Ui.Label("", 22, variation: "CaptionLabel");
-        _help.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _help.CustomMinimumSize = new Vector2(0, 60);
-        right.AddChild(Ui.Pad(_help, 20, 0, 20, 0));
-        var optionPanel = Ui.MicaPanel(right, 10, 12);
-        optionPanel.SizeFlagsVertical = SizeFlags.ExpandFill;
-        columns.AddChild(Ui.Pad(optionPanel, Ui.PanelGap, Ui.PanelGap, Ui.PanelGap, 0));
-
-        Ui.ConfineVertical(_sectionButtons);
-        foreach (var button in _sectionButtons) { button.FocusNeighborLeft = new NodePath(); }
-
-        ShowSection(Math.Clamp(_lastSection, 0, _sections.Count - 1));
+        _page = new SettingsPage();
+        AddChild(_page);
+        _page.AddSection("Playback", PlaybackRows);
+        _page.AddSection("Video", VideoRows);
+        _page.AddSection("Audio", AudioRows);
+        _page.AddSection("Subtitles", SubtitleRows);
+        _page.AddSection("Home", HomeRows);
+        _page.AddSection("Library", LibraryRows);
+        _page.AddSection("Appearance", AppearanceRows);
+        _page.AddSection("Account", AccountRows);
+        _page.AddSection("System", SystemRows);
+        _page.Open(_lastSection);
         _ = LoadPreferencesAsync();
     }
 
@@ -107,74 +58,18 @@ public partial class SettingsScreen : Screen
         if (IsInstanceValid(this) && Jellyfin.I.UserPreferences != null) { Rebuild(); }
     }
 
-    public override void FocusDefault() => _sectionButtons[Math.Max(0, _section)].GrabFocus();
+    public override void FocusDefault() => _page.FocusDefault();
 
     /// <summary>B from an option returns to the section list. B from there goes to the sidebar.</summary>
-    public override bool OnBack()
-    {
-        if (GetViewport().GuiGetFocusOwner() is not SettingRow) { return false; }
-        _sectionButtons[_section].GrabFocus();
-        return true;
-    }
+    public override bool OnBack() => _page.OnBack();
 
-    private void ShowSection(int index)
-    {
-        if (index == _section) { return; }
-        _section = index;
-        _lastSection = index;
-        Rebuild();
-    }
+    /// <summary>The section to reopen on is the one showing when the screen closes.</summary>
+    public override void _ExitTree() => _lastSection = _page?.Section ?? _lastSection;
 
     /// <summary>Builds the current section's rows again, keeping focus on the same row.</summary>
-    private void Rebuild()
-    {
-        var focused = _rows.IndexOf(GetViewport().GuiGetFocusOwner() as SettingRow);
-        foreach (var child in _list.GetChildren())
-        {
-            _list.RemoveChild(child);
-            child.QueueFree();
-        }
-        _rows.Clear();
-        _rows.AddRange(_sections[_section].Build());
-        _help.Text = "";
-        MarkSection();
+    private void Rebuild() => _page.Rebuild();
 
-        var sectionButton = _sectionButtons[_section];
-        for (var i = 0; i < _rows.Count; i++)
-        {
-            var row = _rows[i];
-            _list.AddChild(row);
-            row.FocusEntered += () => _help.Text = row.Help ?? "";
-        }
-        // Up and Down run through the rows and stop at the ends. Left from a row without choices
-        // returns to the section list.
-        for (var i = 0; i < _rows.Count; i++)
-        {
-            var row = _rows[i];
-            row.FocusNeighborTop = _rows[Math.Max(0, i - 1)].GetPath();
-            row.FocusNeighborBottom = _rows[Math.Min(_rows.Count - 1, i + 1)].GetPath();
-            row.FocusNeighborRight = row.GetPath();
-            row.FocusNeighborLeft = row.HasChoices ? row.GetPath() : sectionButton.GetPath();
-        }
-        foreach (var button in _sectionButtons)
-        {
-            button.FocusNeighborRight = _rows.Count > 0 ? _rows[0].GetPath() : button.GetPath();
-        }
-        if (focused >= 0 && _rows.Count > 0) { _rows[Math.Min(focused, _rows.Count - 1)].GrabFocus(); }
-    }
-
-    /// <summary>
-    /// Gives the open section an accent box, so it stays marked while focus is among its options.
-    /// The gliding highlight shows where focus is. The box shows which section the options belong to.
-    /// </summary>
-    private void MarkSection()
-    {
-        for (var i = 0; i < _sectionButtons.Count; i++)
-        {
-            if (i == _section) { _sectionButtons[i].AddThemeStyleboxOverride("normal", Ui.Box(Ui.AccentDim, 10, padX: 18, padY: 8)); }
-            else { _sectionButtons[i].RemoveThemeStyleboxOverride("normal"); }
-        }
-    }
+    private void MarkSection() => _page.MarkSection();
 
     // ---- Row builders ----
 
@@ -372,7 +267,7 @@ public partial class SettingsScreen : Screen
         var config = Config.I;
         void Restyle()
         {
-            Appearance.ApplySaved();
+            App.I.ApplySavedAppearance();
             App.I.RefreshChrome();
             MarkSection();
         }
@@ -393,9 +288,9 @@ public partial class SettingsScreen : Screen
                 new[] { ("System format", "system"), ("12-hour", "12"), ("24-hour", "24"), ("Hidden", "off") }, config.Clock, v =>
                 {
                     config.Clock = v;
-                    App.I.RefreshClock();
+                    App.I.ClockFormat = v;
                 }),
-            Toggle("Interface sounds", "Plays a sound when you move, select and go back.", config.UiSounds, v => config.UiSounds = v),
+            Toggle("Interface sounds", "Plays a sound when you move, select and go back.", config.UiSounds, v => { config.UiSounds = v; UiSounds.Enabled = v; }),
             Toggle("Fullscreen", "Fills the screen. F11 switches too.", App.IsFullscreen, v =>
             {
                 if (v != App.IsFullscreen) { App.I.ToggleFullscreen(); }

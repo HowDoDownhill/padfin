@@ -45,8 +45,8 @@ enabled=PackedStringArray("res://addons/controller_icons/plugin.cfg")
 
 [gui]
 
-theme/custom="res://assets/themes/app_theme.tres"
-theme/custom_font="res://assets/fonts/InterVariable.woff2"
+theme/custom="res://addons/fishui/assets/themes/theme.tres"
+theme/custom_font="res://addons/fishui/assets/fonts/InterVariable.woff2"
 
 [navigation]
 
