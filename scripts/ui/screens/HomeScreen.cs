@@ -155,11 +155,7 @@ public partial class HomeScreen : Screen
             ("Refresh", () => _ = LoadAsync()),
             ("Settings", () => App.I.SwitchTab("settings")),
             ("Toggle Fullscreen", () => App.I.ToggleFullscreen()),
-            ("Sign Out", () =>
-            {
-                Jellyfin.I.SignOut();
-                App.I.ResetTo(new ConnectScreen());
-            }),
+            ("Sign Out", () => _ = SettingsScreen.SignOutAsync()),
             ("Exit Padfin", () => GetTree().Quit()),
         });
     }

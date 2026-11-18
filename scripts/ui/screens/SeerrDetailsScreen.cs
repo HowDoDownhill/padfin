@@ -175,11 +175,18 @@ public partial class SeerrDetailsScreen : Screen
             {
                 var suffix = pending.Count > 1 ? (request.Is4k ? " 4K" : " Standard") : "";
                 AddButton("Approve" + suffix, () => _ = ManageAsync(() => Seerr.I.ApproveAsync(request.Id), "Approved."));
-                AddButton("Decline" + suffix, () => _ = ManageAsync(() => Seerr.I.DeclineAsync(request.Id), "Declined."));
+                AddButton("Decline" + suffix, () => _ = ConfirmThenManageAsync("Decline this request?",
+                    "The person who asked will see it was declined.", "Hold to decline", () => Seerr.I.DeclineAsync(request.Id), "Declined."));
             }
         }
         var mine = pending.FirstOrDefault(r => r.RequestedBy?.Id == Seerr.I.User?.Id);
-        if (mine != null) { AddButton("Cancel Request", () => _ = ManageAsync(() => Seerr.I.CancelAsync(mine.Id), "Request cancelled.")); }
+        if (mine != null) { AddButton("Cancel Request", () => _ = ConfirmThenManageAsync("Cancel your request?",
+            "You can ask for it again later.", "Hold to cancel request", () => Seerr.I.CancelAsync(mine.Id), "Request cancelled.", "Keep Request")); }
+    }
+
+    private async Task ConfirmThenManageAsync(string title, string body, string holdLabel, Func<Task> action, string done, string keepLabel = "Cancel")
+    {
+        if (await App.I.ConfirmHoldAsync(title, body, holdLabel, keepLabel)) { await ManageAsync(action, done); }
     }
 
     private void AddButton(string text, Action pressed) => _buttons.AddChild(Ui.ActionButton(text, pressed));

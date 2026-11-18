@@ -355,9 +355,11 @@ public partial class SettingsScreen : Screen
         catch (JellyfinException e) { App.I.Toast(e.Status == System.Net.HttpStatusCode.NotFound ? "That code was not found." : e.Message); }
     }
 
-    private static async Task SignOutAsync()
+    public static async Task SignOutAsync()
     {
-        if (await App.I.ChooseAsync($"Sign out {Config.I.UserName}?", new[] { "Sign Out", "Cancel" }) != 0) { return; }
+        var sure = await App.I.ConfirmHoldAsync($"Sign out {Config.I.UserName}?",
+            "You will need to sign in again to use Padfin on this device.", "Hold to sign out");
+        if (!sure) { return; }
         Jellyfin.I.SignOut();
         App.I.ResetTo(new ConnectScreen());
     }

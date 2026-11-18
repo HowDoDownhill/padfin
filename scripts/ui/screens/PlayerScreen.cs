@@ -722,18 +722,23 @@ public partial class PlayerScreen : Screen
         _ = Report(Jellyfin.I.ReportProgressAsync, type == "audio" ? "audiotrackchange" : "subtitletrackchange");
     }
 
+    /// <summary>The panel that slides in over the video, with each setting's current choice beside it.</summary>
     private void ShowMoreMenu()
     {
-        var items = new List<(string, Action)>();
-        if (_next != null) { items.Add(($"Next Episode  {_next.EpisodeCode}", () => _ = CloseAsync(_next))); }
-        if (_chapters.Count > 1) { items.Add(("Chapters", ShowChapters)); }
-        items.Add(("Restart", () => _mpv?.SeekTo(0)));
-        if (_item != null) { items.Add(($"Quality: {QualityName(Config.I.MaxBitrateMbps)}", ShowQuality)); }
-        items.Add(($"Speed: {_mpv.Speed:0.##}×", ShowSpeed));
-        items.Add((_stats.Visible ? "Hide Playback Info" : "Show Playback Info", () => _stats.Visible = !_stats.Visible));
-        items.Add(("Stop", () => _ = CloseAsync()));
-        App.I.ShowMenu("Playback", items);
+        var panel = new QuickPanel("Playback");
+        if (_next != null) { panel.AddAction("Next Episode", () => _ = CloseAsync(_next), _next.EpisodeCode); }
+        panel.AddAction("Audio", () => ShowTrackMenu("audio"), SelectedTrack("audio") ?? "");
+        panel.AddAction("Subtitles", () => ShowTrackMenu("sub"), SelectedTrack("sub") ?? "Off");
+        panel.AddAction("Speed", ShowSpeed, $"{_mpv.Speed:0.##}×");
+        if (_item != null) { panel.AddAction("Quality", ShowQuality, QualityName(Config.I.MaxBitrateMbps)); }
+        if (_chapters.Count > 1) { panel.AddAction("Chapters", ShowChapters); }
+        panel.AddToggle("Playback Info", _stats.Visible, on => _stats.Visible = on);
+        panel.AddAction("Restart", () => _mpv?.SeekTo(0));
+        panel.AddAction("Stop", () => _ = CloseAsync());
+        App.I.OpenOverlay(panel);
     }
+
+    private string SelectedTrack(string type) => _mpv.Tracks(type).FirstOrDefault(track => track.Selected)?.Label;
 
     private void ShowChapters()
     {
