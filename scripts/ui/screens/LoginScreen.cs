@@ -34,7 +34,7 @@ public partial class LoginScreen : Screen
 
         var form = new VBoxContainer { CustomMinimumSize = new Vector2(620, 0) };
         form.AddThemeConstantOverride("separation", 14);
-        columns.AddChild(Ui.MicaPanel(form, 36, 30));
+        columns.AddChild(Ui.Panel(form, 36, 30));
         form.AddChild(Ui.Label("Sign In", 60, variation: "DisplayLabel"));
         form.AddChild(Ui.Label(Config.I.ServerName, 26, variation: "CaptionLabel"));
         form.AddChild(Ui.Spacer(0, 12));
@@ -51,7 +51,7 @@ public partial class LoginScreen : Screen
 
         var quickColumn = new VBoxContainer { CustomMinimumSize = new Vector2(460, 0) };
         quickColumn.AddThemeConstantOverride("separation", 12);
-        columns.AddChild(Ui.MicaPanel(quickColumn, 36, 30));
+        columns.AddChild(Ui.Panel(quickColumn, 36, 30));
         quickColumn.AddChild(Ui.Label("Quick Connect", variation: "TitleLabel"));
         _code = Ui.Label("", 96, variation: "AccentLabel");
         _code.HorizontalAlignment = HorizontalAlignment.Center;

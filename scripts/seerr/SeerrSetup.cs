@@ -68,7 +68,7 @@ public static class SeerrSetup
         };
         column.AddChild(button);
 
-        var panel = Ui.MicaPanel(column, 36, 30);
+        var panel = Ui.Panel(column, 36, 30);
         panel.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
         return (Ui.Pad(panel, Ui.Margin, 30, Ui.Margin, 0), button);
     }

@@ -22,7 +22,7 @@ public partial class Card : FishUI.Card
     {
         Item = item;
         var title = item.IsEpisode && shape == CardShape.Landscape ? item.SeriesName ?? item.Name : item.Name;
-        var subtitle = Subtitle(item, shape);
+        var subtitle = SubtitleFor(item, shape);
         if (withinSeries && item.IsEpisode)
         {
             title = item.IndexNumber != null ? $"{item.IndexNumber}. {item.Name}" : item.Name;
@@ -59,7 +59,7 @@ public partial class Card : FishUI.Card
         if (!deferImage) { LoadImage(); }
     }
 
-    private static string Subtitle(BaseItem item, CardShape shape)
+    private static string SubtitleFor(BaseItem item, CardShape shape)
     {
         if (item.IsEpisode)
         {

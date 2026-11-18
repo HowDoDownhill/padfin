@@ -10,6 +10,8 @@ namespace Padfin;
 public partial class HomeScreen : Screen
 {
     private RowPage _page;
+    private HeroBanner _banner;
+    private Card _bannerCard;
     private Label _status;
     private bool _loading;
 
@@ -22,10 +24,16 @@ public partial class HomeScreen : Screen
     public override void OnEnter()
     {
         var column = new VBoxContainer();
+        column.AddThemeConstantOverride("separation", 0);
         Ui.Fill(column);
         AddChild(column);
 
+        // Hidden until a card has focus, so the loading message sits at the top.
+        _banner = new HeroBanner { Visible = false };
+        column.AddChild(_banner);
+
         _page = new RowPage();
+        _page.CardFocused += (row, card) => ShowInBanner(row.Title, card as Card);
         column.AddChild(_page);
         _status = _page.ShowMessage("Loading…");
 
@@ -78,6 +86,33 @@ public partial class HomeScreen : Screen
             App.I.Toast(e.Message);
         }
         finally { _loading = false; }
+    }
+
+    /// <summary>
+    /// Describes the focused card in the banner. The card's own artwork shows at once and the
+    /// item's backdrop replaces it when it has loaded, if focus is still on that card.
+    /// </summary>
+    private async void ShowInBanner(string rowTitle, Card card)
+    {
+        var item = card?.Item;
+        if (item == null) { return; }
+        _bannerCard = card;
+        _banner.Visible = true;
+        _banner.Display(item.IsEpisode ? item.SeriesName ?? item.Name : item.Name, BannerLine(item), card.Image, rowTitle);
+
+        if (!Config.I.Backdrops) { return; }
+        var backdrop = await ImageCache.I.GetAsync(Jellyfin.I.BackdropUrl(item));
+        if (backdrop != null && IsInstanceValid(this) && _bannerCard == card) { _banner.SetArt(backdrop); }
+    }
+
+    private static string BannerLine(BaseItem item)
+    {
+        var parts = item.IsEpisode
+            ? new[] { item.EpisodeCode, item.Name, item.RuntimeText }
+            : item.IsContainer
+                ? new[] { item.ChildCount is > 0 ? $"{item.ChildCount} items" : "" }
+                : new[] { item.ProductionYear?.ToString(), item.RuntimeText, item.OfficialRating };
+        return string.Join(" · ", parts.Where(part => !string.IsNullOrEmpty(part)));
     }
 
     private static async Task<List<BaseItem>> SafeLatest(string viewId)

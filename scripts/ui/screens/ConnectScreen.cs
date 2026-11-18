@@ -24,7 +24,7 @@ public partial class ConnectScreen : Screen
 
         var column = new VBoxContainer { CustomMinimumSize = new Vector2(760, 0) };
         column.AddThemeConstantOverride("separation", 10);
-        center.AddChild(Ui.MicaPanel(column, 36, 30));
+        center.AddChild(Ui.Panel(column, 36, 30));
 
         column.AddChild(Ui.Label("Padfin", 84, variation: "DisplayLabel"));
         column.AddChild(Ui.Label("Choose your Jellyfin server", 30, variation: "CaptionLabel"));

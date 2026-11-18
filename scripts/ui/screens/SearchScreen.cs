@@ -47,7 +47,7 @@ public partial class SearchScreen : Screen
         _keys.Backspace += DeleteLast;
         _keys.Done += () => SetQuery("");
         left.AddChild(_keys);
-        var keyboard = Ui.MicaPanel(left, 28, 22);
+        var keyboard = Ui.Panel(left, 28, 22);
         keyboard.SizeFlagsVertical = SizeFlags.ShrinkBegin;
         var leftPad = Ui.Pad(keyboard, Ui.PanelGap, Ui.PanelGap, 0, 0);
         leftPad.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
