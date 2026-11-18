@@ -119,7 +119,9 @@ offer comes back to fix the shortcut.
 You need Godot 4.7.2 (.NET build), the .NET 8 SDK, and libmpv.
 
 1. **libmpv.** On Windows run `tools/fetch-mpv.ps1`, which downloads `libmpv-2.dll` into
-   `native/win-x64` (needs 7-Zip). On Linux install your distribution's `libmpv2` package.
+   `native/win-x64` (needs 7-Zip). On Linux install your distribution's `libmpv2` package to run from source. The
+   Linux download ships a libmpv that the `Linux libmpv` workflow in `.github/workflows` builds
+   from the mpv, FFmpeg, libass, libplacebo, dav1d and libdrm sources.
 2. Open the project in Godot, or run it from a terminal:
 
    ```
@@ -163,5 +165,5 @@ Settings, your Jellyfin token and your Seerr sign-in are stored in Godot's user 
 
 ## Licence
 
-RomBox's interface code is GPL-3.0, and the Windows libmpv build Padfin fetches is GPL as well, so
+RomBox's interface code is GPL-3.0, and the libmpv builds Padfin ships for Windows and Linux are GPL as well, so
 Padfin is distributed under the GPL-3.0.

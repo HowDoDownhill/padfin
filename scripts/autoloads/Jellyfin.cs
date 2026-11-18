@@ -23,7 +23,7 @@ public class JellyfinException : Exception
 public partial class Jellyfin : Node
 {
     public const string ClientName = "Padfin";
-    public const string ClientVersion = "0.1.0";
+    public const string ClientVersion = "0.1.1";
     private const string ItemFields = "Overview,Genres,ChildCount,PrimaryImageAspectRatio";
 
     public static Jellyfin I { get; private set; }
