@@ -10,6 +10,8 @@
 param([string]$Output, [switch]$Release)
 
 $ErrorActionPreference = 'Stop'
+# The release of this repository that holds the Linux libmpv. Delete native\linux-x64 after changing it.
+$LinuxMpvTag = 'libmpv-linux-1'
 $root = $PSScriptRoot
 $out = if ($Output) { [IO.Path]::GetFullPath((Join-Path $root $Output)) } else { Join-Path $root 'build\windows' }
 $exe = Join-Path $out 'padfin.exe'
@@ -71,7 +73,19 @@ if ($Release) {
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $zip)) { throw 'The release zip could not be made.' }
     Write-Host ('Packed {0} ({1:N0} MB)' -f $zip, ((Get-Item $zip).Length / 1MB))
 
-    # The Linux build. It uses the system's libmpv, so nothing is bundled beside it.
+    # The Linux build. Its libmpv is built from source by this repository's "Linux libmpv" workflow
+    # and published as a release, with FFmpeg and the codecs inside the one library.
+    $linuxMpv = Join-Path $root 'native\linux-x64\libmpv.so.2'
+    if (-not (Test-Path $linuxMpv)) {
+        $linuxNative = Split-Path $linuxMpv
+        New-Item -ItemType Directory -Force $linuxNative | Out-Null
+        $archive = Join-Path $linuxNative 'libmpv-linux-x86_64.tar.gz'
+        Write-Host "Fetching libmpv for Linux ($LinuxMpvTag)"
+        Invoke-WebRequest -Uri "https://github.com/HowDoDownhill/padfin/releases/download/$LinuxMpvTag/libmpv-linux-x86_64.tar.gz" -OutFile $archive -UseBasicParsing
+        tar.exe -xzf $archive -C $linuxNative
+        Remove-Item $archive -Force -Confirm:$false
+        if (-not (Test-Path $linuxMpv)) { throw 'libmpv for Linux could not be fetched.' }
+    }
     $linux = Join-Path $root 'build\linux'
     New-Item -ItemType Directory -Force $linux | Out-Null
     Get-ChildItem $linux -Force | Remove-Item -Recurse -Force -Confirm:$false
@@ -82,6 +96,7 @@ if ($Release) {
         Select-String -Path $linuxLog -Pattern '^ERROR' | Select-Object -First 10 | ForEach-Object { Write-Host $_.Line }
         throw "The Linux export failed. The full log is at $linuxLog"
     }
+    Copy-Item (Join-Path (Split-Path $linuxMpv) '*') $linux -Force
 
     # Written entry by entry so the launcher files keep their executable bit, which a zip made by
     # Windows tools would drop. Names use forward slashes, as Linux expects.
@@ -99,5 +114,20 @@ if ($Release) {
         }
     }
     finally { $archive.Dispose() }
+
+    # Each entry is marked as written on Unix. Zip tools on Linux ignore the permission bits of an
+    # entry marked as written on Windows, and the launcher would unpack without its executable bit.
+    $bytes = [IO.File]::ReadAllBytes($linuxZip)
+    $end = $bytes.Length - 22
+    while ($end -ge 0 -and -not ($bytes[$end] -eq 0x50 -and $bytes[$end + 1] -eq 0x4B -and $bytes[$end + 2] -eq 5 -and $bytes[$end + 3] -eq 6)) { $end-- }
+    if ($end -lt 0) { throw 'The Linux zip has no directory.' }
+    $count = [BitConverter]::ToUInt16($bytes, $end + 10)
+    $at = [int][BitConverter]::ToUInt32($bytes, $end + 16)
+    for ($i = 0; $i -lt $count; $i++) {
+        if ([BitConverter]::ToUInt32($bytes, $at) -ne 0x02014B50) { throw 'The Linux zip directory could not be read.' }
+        $bytes[$at + 5] = 3
+        $at += 46 + [BitConverter]::ToUInt16($bytes, $at + 28) + [BitConverter]::ToUInt16($bytes, $at + 30) + [BitConverter]::ToUInt16($bytes, $at + 32)
+    }
+    [IO.File]::WriteAllBytes($linuxZip, $bytes)
     Write-Host ('Packed {0} ({1:N0} MB)' -f $linuxZip, ((Get-Item $linuxZip).Length / 1MB))
 }

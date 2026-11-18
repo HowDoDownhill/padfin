@@ -81,8 +81,14 @@ You need a 64-bit PC running Windows 10 or 11, or Linux.
 2. Extract it to any folder you can write to.
 3. Run `padfin.exe` on Windows or `padfin.sh` on Linux.
 
-On Linux, Padfin plays video with the system's libmpv. Install it first: `libmpv2` on Debian and
-Ubuntu, `mpv-libs` on Fedora, `mpv` on Arch and SteamOS. The Linux build has not been tested yet.
+The Linux download carries its own video player: `libmpv.so.2` sits beside the executable with
+FFmpeg and the codecs built in, so there is no mpv or FFmpeg to install. It needs glibc 2.35 or
+newer, which covers Ubuntu 22.04, Debian 12, Fedora, Arch and SteamOS 3.5 onward. From the system it
+uses the libraries a desktop already has: OpenGL, fontconfig, FreeType, HarfBuzz, FriBidi, GnuTLS,
+ALSA, PulseAudio (or PipeWire's stand-in for it) and libva for hardware decoding.
+
+The Linux build has been run on a test machine with software graphics. It has not yet been tried on
+a Steam Deck or with hardware decoding.
 
 ## Updates
 

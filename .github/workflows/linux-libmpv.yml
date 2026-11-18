@@ -69,12 +69,13 @@ jobs:
           cd mpv-build
           ./use-mpv-release
           ./use-ffmpeg-release
-          printf '%s\n' --enable-pic --enable-gnutls --enable-libdav1d --disable-programs --disable-doc > ffmpeg_options
+          printf '%s\n' --enable-pic --enable-gnutls --enable-libdav1d --disable-programs --disable-doc             --disable-xlib --disable-libxcb --disable-bzlib --disable-lzma > ffmpeg_options
           # Only what a library drawing into someone else's OpenGL context needs. No window
-          # systems, no scripting, no command-line player.
+          # systems, no scripting, no command-line player. Features found on the runner by chance
+          # are switched off, since each adds a library the user's system would have to supply.
           printf '%s\n' -Dlibmpv=true -Dcplayer=false -Dplain-gl=enabled -Dgl=enabled \
             -Dx11=disabled -Dwayland=disabled -Dpipewire=disabled -Dlua=disabled -Djavascript=disabled \
-            -Ddrm=enabled -Dvaapi=enabled -Dvaapi-drm=enabled -Dcuda-hwaccel=enabled             -Dalsa=enabled -Dpulse=enabled > mpv_options
+            -Ddrm=enabled -Dvaapi=enabled -Dvaapi-drm=enabled -Dcuda-hwaccel=enabled             -Dalsa=enabled -Dpulse=enabled -Djpeg=disabled -Dlcms2=disabled -Dgbm=disabled -Degl-drm=disabled > mpv_options
           export CFLAGS="-fPIC" CXXFLAGS="-fPIC"
           ./rebuild -j"$(nproc)"
           mkdir -p "$GITHUB_WORKSPACE/out"
@@ -166,8 +167,36 @@ jobs:
             connect.log
             ldd.txt
 
+  loads:
+    # The library must find every system library it names on other distributions too. Each
+    # container gets the packages a desktop install already has.
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: fedora:latest
+            install: dnf install -y libva pulseaudio-libs alsa-lib gnutls fontconfig harfbuzz fribidi freetype libglvnd-egl zlib libstdc++
+          - image: archlinux:latest
+            install: pacman -Sy --noconfirm libva libpulse alsa-lib gnutls fontconfig harfbuzz fribidi freetype2 libglvnd zlib
+          - image: debian:12
+            install: apt-get update && apt-get install -y --no-install-recommends libva2 libva-drm2 libpulse0 libasound2 libgnutls30 libfontconfig1 libharfbuzz0b libfribidi0 libfreetype6 libegl1 zlib1g
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: libmpv-linux-x86_64
+          path: libmpv
+      - name: Install the system libraries
+        run: ${{ matrix.install }}
+      - name: Check every library is found
+        run: |
+          ldd libmpv/libmpv.so.2 | tee ldd.txt
+          ! grep -q "not found" ldd.txt
+
   publish:
-    needs: [build, test]
+    needs: [build, test, loads]
     if: inputs.publish_tag != ''
     runs-on: ubuntu-24.04
     steps:
