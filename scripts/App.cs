@@ -30,6 +30,17 @@ public partial class App : AppShell
         new ShellTab("settings", "Settings", () => new SettingsScreen(), Ui.NavIcon("settings")),
     };
 
+    /// <summary>The ring that LT with RT opens: the places people jump to most.</summary>
+    protected override IReadOnlyList<(string Label, System.Action Action)> QuickActions => new (string, System.Action)[]
+    {
+        ("Search", () => Push(new SearchScreen())),
+        ("Movies", () => SwitchTab("movies")),
+        ("Home", () => SwitchTab("home")),
+        ("TV", () => SwitchTab("tv")),
+    };
+
+    protected override string QuickActionsTitle => "Go to";
+
     // ---- Saved settings ----
 
     protected override void ApplyAppearance()
