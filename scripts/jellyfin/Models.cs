@@ -54,6 +54,7 @@ public class BaseItem
 {
     public string Id;
     public string Name;
+    public string SortName;
     public string Type;
     public string CollectionType;
     public string MediaType;

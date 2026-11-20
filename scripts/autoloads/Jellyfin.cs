@@ -24,7 +24,7 @@ public partial class Jellyfin : Node
 {
     public const string ClientName = "Padfin";
     public const string ClientVersion = "0.1.2";
-    private const string ItemFields = "Overview,Genres,ChildCount,PrimaryImageAspectRatio";
+    private const string ItemFields = "Overview,Genres,ChildCount,PrimaryImageAspectRatio,SortName";
 
     public static Jellyfin I { get; private set; }
 

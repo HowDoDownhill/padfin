@@ -6,7 +6,10 @@ using Godot;
 
 namespace Padfin;
 
-/// <summary>A poster grid for a library, collection or folder. Loads a page at a time as focus nears the end.</summary>
+/// <summary>
+/// A poster grid for a library, collection or folder. Loads a page at a time as focus nears the
+/// end. LT and RT step through the alphabet while sorted by name, and by a screenful otherwise.
+/// </summary>
 public partial class LibraryScreen : Screen
 {
     private const int PageSize = 100;
@@ -28,22 +31,23 @@ public partial class LibraryScreen : Screen
     private List<BaseItem> _genres;
     private string _genreId;
     private string _genreName;
-    private readonly List<Card> _cards = new();
-    private ScrollContainer _scroll;
-    private HFlowContainer _grid;
+    private CardGrid _grid;
+    private Task _load;
     private int _sort = Math.Clamp(Config.I.LibrarySort, 0, Sorts.Length - 1);
 
     /// <summary>The names of the sort orders, for the default-sort setting.</summary>
     public static IEnumerable<string> SortNames => Sorts.Select(s => s.Label);
     private int _total = -1;
     private int _generation;
-    private bool _loading;
 
     public override IEnumerable<(string, string)> Hints =>
         new[] { (Actions.Accept, "Select"), (Actions.X, "Sort"), (Actions.Y, "Search"), (Actions.Rb, "Hold: Genres"), (Actions.Back, "Back") };
 
     public override string Tab => _tab;
     public override string Title => _title;
+    public override string TriggerLabel => SortedByName ? "Letter" : "Page";
+
+    private bool SortedByName => Sorts[_sort].SortBy == "SortName";
 
     public LibraryScreen() { }
 
@@ -73,82 +77,75 @@ public partial class LibraryScreen : Screen
 
     public override void OnEnter()
     {
-        var column = new VBoxContainer();
-        Ui.Fill(column);
-        AddChild(column);
-
-        _scroll = new ScrollContainer
+        _grid = new CardGrid
         {
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            VerticalScrollMode = ScrollContainer.ScrollMode.ShowNever,
-            SizeFlagsVertical = SizeFlags.ExpandFill,
+            LoadsImagesNearView = true,
+            // Jellyfin files a title under its sort name, so "The Matrix" sits with the Ms.
+            LetterOf = card => CardGrid.Initial(((Card)card).Item?.SortName ?? card.Title),
         };
-        column.AddChild(_scroll);
-        _grid = new HFlowContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _grid.AddThemeConstantOverride("h_separation", 30);
-        _grid.AddThemeConstantOverride("v_separation", 26);
-        var content = Ui.Pad(_grid, Ui.Margin, Card.ShadowAbove, Ui.Margin, 60);
-        _scroll.AddChild(content);
-        FocusScroller.KeepVisible(_scroll, content, 60, vertical: true);
-        _scroll.GetVScrollBar().ValueChanged += _ => UpdateImages();
+        _grid.NearEnd += () => _ = LoadPageAsync();
+        Ui.Fill(_grid);
+        AddChild(_grid);
 
         _ = LoadPageAsync();
     }
 
-    public override void FocusDefault()
+    public override void FocusDefault() => _grid.Focus();
+
+    private bool AllLoaded => _total >= 0 && _grid.Cards.Count >= _total;
+
+    /// <summary>Loads the next page. A call made while a page is on its way waits for that page.</summary>
+    private Task LoadPageAsync()
     {
-        if (_cards.Count > 0) { _cards[0].GrabFocus(); }
+        if (_load is { IsCompleted: false }) { return _load; }
+        return _load = AllLoaded ? Task.CompletedTask : LoadNextPageAsync();
     }
 
-    private async Task LoadPageAsync()
+    private async Task LoadNextPageAsync()
     {
-        if (_loading || (_total >= 0 && _cards.Count >= _total)) { return; }
-        _loading = true;
         var generation = _generation;
         try
         {
             var sort = Sorts[_sort];
-            var result = await Jellyfin.I.ItemsAsync(_parentId, _types, _recursive, sort.SortBy, sort.Descending, _cards.Count, PageSize, _genreId);
+            var result = await Jellyfin.I.ItemsAsync(_parentId, _types, _recursive, sort.SortBy, sort.Descending, _grid.Cards.Count, PageSize, _genreId);
             if (!IsInstanceValid(this) || generation != _generation) { return; }
             _total = result.TotalRecordCount;
-            var wasEmpty = _cards.Count == 0;
+            var wasEmpty = _grid.Cards.Count == 0;
             foreach (var item in result.Items)
             {
                 var card = new Card(item, CardShape.Poster, CardWidth, deferImage: true);
-                var index = _cards.Count;
-                card.Pressed += () => App.I.Open(card.Item);
-                card.FocusEntered += () => OnCardFocused(index);
-                _grid.AddChild(card);
-                _cards.Add(card);
+                _grid.Add(card, _ => App.I.Open(card.Item));
             }
-            if (result.Items.Count == 0) { _total = _cards.Count; }
+            if (result.Items.Count == 0) { _total = _grid.Cards.Count; }
             SetInfo($"{_total} items  ·  {(_genreName == null ? "" : _genreName + "  ·  ")}Sorted by {sort.Label}");
             if (wasEmpty && App.I.Current == this) { FocusDefault(); }
             if (_total == 0) { SetInfo("Nothing here yet"); }
-            // Layout settles on the next frame, which is when card positions are known.
-            Callable.From(UpdateImages).CallDeferred();
         }
-        catch (JellyfinException e) { App.I.Toast(e.Message); }
-        finally { _loading = false; }
-    }
-
-    private void OnCardFocused(int index)
-    {
-        if (index >= _cards.Count - 30) { _ = LoadPageAsync(); }
-    }
-
-    /// <summary>Loads artwork for cards near the visible area and frees it for cards far away.</summary>
-    private void UpdateImages()
-    {
-        if (!IsInstanceValid(_scroll)) { return; }
-        var view = _scroll.GetGlobalRect();
-        var near = view.Grow(view.Size.Y * 1.5f);
-        var far = view.Grow(view.Size.Y * 4f);
-        foreach (var card in _cards)
+        catch (JellyfinException e)
         {
-            var rect = card.GetGlobalRect();
-            if (near.Intersects(rect)) { card.LoadImage(); }
-            else if (!far.Intersects(rect)) { card.UnloadImage(); }
+            // Stops a caller that is waiting for more cards from asking again.
+            _total = _grid.Cards.Count;
+            App.I.Toast(e.Message);
+        }
+    }
+
+    /// <summary>LT and RT: the previous or next letter while sorted by name, a screenful otherwise.</summary>
+    public override bool OnTrigger(int direction)
+    {
+        if (SortedByName) { _ = StepLetterAsync(direction); }
+        else { _grid.StepPage(direction); }
+        return true;
+    }
+
+    /// <summary>Steps to the next letter, loading pages until a card of that letter has arrived.</summary>
+    private async Task StepLetterAsync(int direction)
+    {
+        var generation = _generation;
+        while (!_grid.StepLetter(direction))
+        {
+            if (direction < 0 || AllLoaded) { return; }
+            await LoadPageAsync();
+            if (!IsInstanceValid(this) || generation != _generation || App.I.Current != this) { return; }
         }
     }
 
@@ -156,6 +153,7 @@ public partial class LibraryScreen : Screen
     {
         _sort = (_sort + 1) % Sorts.Length;
         Reload();
+        App.I.RefreshChrome(); // The trigger prompt names what the triggers do under this sort.
     }
 
     /// <summary>Opens the genre jump grid. Choosing a genre filters this page to it.</summary>
@@ -196,11 +194,9 @@ public partial class LibraryScreen : Screen
     private void Reload()
     {
         _generation++;
-        _loading = false;
+        _load = null;
         _total = -1;
-        foreach (var card in _cards) { card.QueueFree(); }
-        _cards.Clear();
-        _scroll.ScrollVertical = 0;
+        _grid.Clear();
         _ = LoadPageAsync();
     }
 
