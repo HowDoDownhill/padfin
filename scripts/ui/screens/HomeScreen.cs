@@ -19,7 +19,7 @@ public partial class HomeScreen : Screen
     public override string Title => "Home";
 
     public override IEnumerable<(string, string)> Hints =>
-        new[] { (Actions.Accept, "Select"), (Actions.X, "Details"), (Actions.Y, "Search"), (Actions.Start, "Menu") };
+        new[] { (Actions.Accept, "Select"), (Actions.X, "Details"), (Actions.Y, "Search") };
 
     public override void OnEnter()
     {
@@ -139,24 +139,8 @@ public partial class HomeScreen : Screen
             App.I.Push(new SearchScreen());
             return true;
         }
-        if (e.IsActionPressed(Actions.Start))
-        {
-            ShowMenu();
-            return true;
-        }
         return false;
     }
 
-    private void ShowMenu()
-    {
-        App.I.ShowMenu("Menu", new (string, Action)[]
-        {
-            ("Search", () => App.I.Push(new SearchScreen())),
-            ("Refresh", () => _ = LoadAsync()),
-            ("Settings", () => App.I.SwitchTab("settings")),
-            ("Toggle Fullscreen", () => App.I.ToggleFullscreen()),
-            ("Sign Out", () => _ = SettingsScreen.SignOutAsync()),
-            ("Exit Padfin", () => GetTree().Quit()),
-        });
-    }
+    public override MenuGroup PageMenu => new("Home", new (string, Action)[] { ("Refresh", () => _ = LoadAsync()) });
 }

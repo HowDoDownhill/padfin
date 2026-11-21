@@ -16,7 +16,7 @@ public partial class RequestsScreen : Screen
     public override string Title => "Requests";
 
     public override IEnumerable<(string, string)> Hints =>
-        new[] { (Actions.Accept, "Select"), (Actions.X, "Refresh"), (Actions.Y, "Search"), (Actions.Start, "Menu") };
+        new[] { (Actions.Accept, "Select"), (Actions.X, "Refresh"), (Actions.Y, "Search") };
 
     public override void OnEnter()
     {
@@ -105,17 +105,14 @@ public partial class RequestsScreen : Screen
             App.I.Push(new SearchScreen());
             return true;
         }
-        if (e.IsActionPressed(Actions.Start))
-        {
-            ShowMenu();
-            return true;
-        }
         return false;
     }
 
-    private void ShowMenu()
+    public override MenuGroup PageMenu => new("Seerr", SeerrChoices());
+
+    private List<(string, System.Action)> SeerrChoices()
     {
-        var items = new List<(string, System.Action)> { ("Search", () => App.I.Push(new SearchScreen())) };
+        var items = new List<(string, System.Action)>();
         if (Seerr.I.Connected)
         {
             items.Add(("Refresh", () => _ = LoadAsync()));
@@ -132,6 +129,6 @@ public partial class RequestsScreen : Screen
                 if (await SeerrSetup.RunAsync()) { _ = LoadAsync(); }
             }));
         }
-        App.I.ShowMenu("Seerr", items);
+        return items;
     }
 }

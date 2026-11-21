@@ -149,6 +149,12 @@ public partial class LibraryScreen : Screen
         }
     }
 
+    public override MenuGroup PageMenu => new(_title, new (string, Action)[]
+    {
+        ($"Sort: {Sorts[_sort].Label}", CycleSort),
+        (_genreName == null ? "Genres" : $"Genre: {_genreName}", () => _ = ShowGenresAsync()),
+    });
+
     private void CycleSort()
     {
         _sort = (_sort + 1) % Sorts.Length;

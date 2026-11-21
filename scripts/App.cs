@@ -41,6 +41,18 @@ public partial class App : AppShell
 
     protected override string QuickActionsTitle => "Go to";
 
+    protected override IReadOnlyList<MenuGroup> StartMenu => new[]
+    {
+        new MenuGroup("Padfin", new (string, System.Action)[]
+        {
+            ("Search", () => { if (Current is not SearchScreen) { Push(new SearchScreen()); } }),
+            ("Settings", () => SwitchTab("settings")),
+            ("Toggle Fullscreen", ToggleFullscreen),
+            ("Sign Out", () => _ = SettingsScreen.SignOutAsync()),
+            ("Exit Padfin", () => _ = QuitAsync()),
+        }),
+    };
+
     // ---- Saved settings ----
 
     protected override void ApplyAppearance()
